@@ -1,0 +1,7 @@
+opencv-python
+ultralytics
+geocoder
+python-dotenv
+google-generativeai
+Pillow
+torch
