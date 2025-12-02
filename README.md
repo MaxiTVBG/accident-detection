@@ -1,101 +1,131 @@
-# Accident Detection with YOLOv8 and Gemini Pro
+<div align="center">
 
-This project provides a real-time accident detection system using the YOLOv8 object detection model and Google's Gemini Pro for detailed accident analysis and reporting.
+# 🚗 Accident Detection & AI Analysis 📸
 
-## Features
+**A cutting-edge system that not only detects traffic accidents in real-time but also uses Generative AI to understand and report on them.**
 
-- **Real-time Accident Detection:** Processes video streams from files or webcams to detect accidents in real-time.
-- **Advanced Detection Heuristics:** Utilizes a combination of three methods to ensure high accuracy and reduce false positives:
-    1.  **Direct Classification:** A custom-trained YOLOv8 model identifies "vehicle_incident" classes.
-    2.  **Collision Detection:** Monitors the Intersection over Union (IoU) of tracked objects to detect collisions.
-    3.  **Sudden Stop Analysis:** Tracks object movement to identify sudden and unexpected stops indicative of an accident.
-- **AI-Powered Accident Analysis:** Upon confirming an accident, the system sends key video frames to the **Google Gemini 2.5 Pro** model. Gemini then generates a structured JSON report detailing:
-    -   **Accident Severity:** (e.g., 'Minor', 'Moderate', 'Severe').
-    -   **Concise Description:** A one-sentence summary of the event.
-    -   **Inferred Sequence of Events:** A likely timeline of the accident.
-    -   **Participants:** Details of involved vehicles or persons (type, color, visible damage, and role).
-- **GPS Stamping:** Automatically captures and includes GPS coordinates in the accident report, using location name geocoding or IP-based location as a fallback.
-- **Comprehensive Reporting:** Generates a JSON file for each confirmed accident containing:
-    -   Timestamp.
-    -   GPS coordinates with a Google Maps link.
-    -   The detailed AI-generated analysis from Gemini.
-    -   The detection parameters used.
-- **Annotated Video Output:** Creates a processed video file showing bounding boxes, object tracking paths, and on-screen alerts for potential and confirmed accidents.
-- **Highly Configurable:** All major parameters, such as model paths, confidence thresholds, and IoU thresholds, can be adjusted via command-line arguments.
+</div>
 
-## How It Works
+<p align="center">
+  <img alt="Python Version" src="https://img.shields.io/badge/python-3.9%2B-blue.svg?style=for-the-badge&logo=python">
+  <img alt="Frameworks" src="https://img.shields.io/badge/Made%20with-YOLOv8%20%26%20Gemini-orange.svg?style=for-the-badge">
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge">
+</p>
 
-1.  **Video Input:** The system captures frames from a specified video source.
-2.  **Object Tracking:** The YOLOv8 model processes each frame to detect and track objects, assigning a unique ID to each.
-3.  **Heuristic Analysis:** The system analyzes the tracking data for signs of an accident using the three detection methods.
-4.  **Event Confirmation:** An accident is only confirmed if the indicators persist across a configurable number of consecutive frames, preventing false alarms.
-5.  **AI Description Generation:** Once confirmed, a buffer of recent frames is sent to the Gemini 2.5 Pro API for analysis.
-6.  **Report Generation:** A final report, including the AI analysis and GPS data, is saved to the `accident_reports` directory.
+---
 
-## Installation
+### ✨ Key Features
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd accident-detection
+-   **👁️ Real-time Detection:** Process live video from webcams or files to catch incidents as they happen.
+-   **🎯 High-Accuracy Heuristics:** Goes beyond simple detection by using a powerful three-factor confirmation system:
+    1.  **AI Classification:** A custom-trained YOLOv8 model spots `vehicle_incident` events.
+    2.  **Collision Analysis:** Smartly detects overlapping objects (high IoU) to identify potential collisions.
+    3.  **Sudden Stop Monitoring:** Tracks vehicle speeds to flag unnatural, sudden stops.
+-   **🧠 Gemini-Powered Insights:** When an accident is confirmed, key frames are sent to **Google's Gemini 2.5 Pro** model, which returns a detailed JSON analysis covering:
+    -   **Severity Assessment:** `Minor`, `Moderate`, or `Severe`.
+    -   **Event Summary:** A quick, one-sentence description.
+    -   **Sequence of Events:** A step-by-step breakdown of the incident.
+    -   **Participant Details:** Information on vehicles involved.
+-   **🌍 GPS Stamping:** Automatically logs the exact location of the incident, providing a Google Maps link in the final report.
+-   **📝 Comprehensive Reports:** Generates a clean `.json` report for each accident, perfect for logging or further analysis.
+-   **📹 Annotated Video Output:** Creates a new video file with all detections, tracking paths, and alerts drawn directly onto the footage.
+
+---
+
+### ⚙️ How It Works
+
+1.  **Ingest:** The system reads a video stream frame by frame.
+2.  **Detect & Track:** YOLOv8 identifies and puts a tracking ID on every object of interest.
+3.  **Analyze:** The system's brain checks for collisions, sudden stops, or direct "incident" classifications.
+4.  **Confirm:** To avoid false alarms, an accident is only flagged if the signs persist for several consecutive frames.
+5.  **Describe:** Once confirmed, the magic happens. Key frames are sent to the Gemini API.
+6.  **Report:** A detailed JSON report is generated and saved in the `accident_reports/` folder.
+
+---
+
+### 🛠️ Getting Started
+
+Follow these steps to get the project running on your local machine.
+
+#### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd accident-detection
+```
+
+#### 2. Set Up a Virtual Environment
+
+```bash
+# Create and activate a Python virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+#### 3. Install Dependencies
+
+```bash
+# Install all the necessary packages
+pip install -r requirements.txt
+```
+
+#### 4. Configure Your API Key
+
+> **Note:** This project relies on the Google Gemini API for its analysis features.
+
+-   Get your free API key from 👉 **[Google AI Studio](https://makersuite.google.com/app/apikey)**.
+-   Create a new file named `.env` in the project's root directory.
+-   Add your key to the `.env` file like this:
+
+    ```env
+    GEMINI_API_KEY='YOUR_API_KEY_HERE'
     ```
 
-2.  **Create and activate a virtual environment:**
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    ```
+---
 
-3.  **Install the required dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+### ▶️ Running the Detector
 
-4.  **Set up your Gemini API Key:**
-    -   Get a free API key from the [Google AI Studio](https://makersuite.google.com/app/apikey).
-    -   Create a file named `.env` in the root of the project.
-    -   Add your API key to the `.env` file like this:
-        ```
-        GEMINI_API_KEY='YOUR_API_KEY_HERE'
-        ```
+The script is controlled via the command line.
 
-## Usage
+#### Basic Examples
 
-You can run the accident detection script from the command line.
+```bash
+# Run detection on a local video file
+python accident_detection.py --source demo_video.mp4
 
-### Basic Usage
+# Run detection using a live webcam
+python accident_detection.py --source 0
+```
 
--   **To run on a demo video file:**
-    ```bash
-    python accident_detection.py --source demo_video.mp4
-    ```
+#### 🎛️ Command-Line Arguments
 
--   **To use your webcam:**
-    ```bash
-    python accident_detection.py --source 0
-    ```
+All arguments are optional, but allow you to fine-tune the detection process.
 
-### Command-Line Arguments
+| Argument            | Description                                                               | Default             |
+| ------------------- | ------------------------------------------------------------------------- | ------------------- |
+| `--source`          | Path to video file or `0` for webcam.                                     | `0`                 |
+| `--model`           | Path to the YOLOv8 model weights file.                                    | `best.pt`           |
+| `--output`          | Name for the generated output video.                                      | `results_video.mp4` |
+| `--acc-conf`        | Confidence threshold for `vehicle_incident` classification.               | `0.75`              |
+| `--frame-threshold` | Number of consecutive frames to confirm an accident.                      | `3`                 |
+| `--speed-threshold` | Pixel displacement to be considered a "sudden stop".                      | `10`                |
+| `--iou-threshold`   | Intersection over Union (IoU) threshold for collision detection.          | `0.1`               |
+| `--location`        | Provide a location name (e.g., "Eiffel Tower") for accurate geocoding. | `None`              |
 
--   `--source`: Path to the video file or '0' for webcam. (Default: '0')
--   `--model`: Path to the YOLOv8 model file. (Default: 'best.pt')
--   `--output`: Name of the output video file. (Default: 'results_video.mp4')
--   `--acc-conf`: Confidence threshold for 'vehicle_incident' classification. (Default: 0.75)
--   `--frame-threshold`: Number of consecutive frames needed to confirm an accident. (Default: 3)
--   `--speed-threshold`: Pixel displacement threshold to detect a sudden stop. (Default: 10)
--   `--iou-threshold`: IoU threshold for detecting a collision between objects. (Default: 0.1)
--   `--location`: Provide a specific location name (e.g., "Eiffel Tower, Paris") for accurate GPS coordinates in the report.
+#### Advanced Example
 
-### Example with Custom Parameters
+Here's how you might run a more customized analysis:
 
 ```bash
 python accident_detection.py \
     --source "path/to/your/video.mp4" \
     --model "best.pt" \
-    --output "my_analysis_video.mp4" \
+    --output "my_analysis.mp4" \
     --acc-conf 0.80 \
     --frame-threshold 4 \
     --location "1600 Amphitheatre Parkway, Mountain View, CA"
 ```
 
-After processing, the output video will be saved as `my_analysis_video.mp4`, and any confirmed accident reports will be stored in the `accident_reports/` directory.
+After running, you'll find the annotated video (`my_analysis.mp4`) and any JSON reports in the project directory.
+
+---
