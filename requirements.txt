@@ -5,3 +5,9 @@ python-dotenv
 google-generativeai
 Pillow
 torch
+
+# Development and Testing
+black
+flake8
+pytest
+mypy

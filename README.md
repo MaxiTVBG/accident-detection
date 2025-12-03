@@ -91,10 +91,10 @@ The script is controlled via the command line.
 
 ```bash
 # Run detection on a local video file
-python accident_detection.py --source demo_video.mp4
+python3 -m src.accident_detection --source demo_video.mp4
 
 # Run detection using a live webcam
-python accident_detection.py --source 0
+python3 -m src.accident_detection --source 0
 ```
 
 #### 🎛️ Command-Line Arguments
@@ -117,7 +117,7 @@ All arguments are optional, but allow you to fine-tune the detection process.
 Here's how you might run a more customized analysis:
 
 ```bash
-python accident_detection.py \
+python3 -m src.accident_detection \
     --source "path/to/your/video.mp4" \
     --model "best.pt" \
     --output "my_analysis.mp4" \
