@@ -22,6 +22,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from accident_detection import AccidentDetector
 
+# Construct the absolute path to the model file
+model_path = os.path.join(os.path.dirname(__file__), '..', 'best.pt')
+
 app = FastAPI()
 
 # CORS configuration
@@ -42,7 +45,7 @@ app.add_middleware(
 async def websocket_endpoint(websocket: WebSocket, lang: Optional[str] = 'en'):
     await websocket.accept()
     # Initialize detector with the language from the websocket connection
-    detector = AccidentDetector(model_path="best.pt", language=lang) 
+    detector = AccidentDetector(model_path=model_path, language=lang) 
     try:
         while True:
             data = await websocket.receive_text()
@@ -81,7 +84,7 @@ async def upload_video(video: UploadFile = File(...), lang: Optional[str] = 'en'
     print(f"Video '{video.filename}' uploaded. Running accident detection...")
     
     # Initialize detector with the language from the upload request
-    detector = AccidentDetector(model_path="best.pt", language=lang)
+    detector = AccidentDetector(model_path=model_path, language=lang)
     # process_video now returns the actual report object, not just a filename
     report_object = detector.process_video(file_path) 
 
