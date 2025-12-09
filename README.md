@@ -83,49 +83,170 @@ pip install -r requirements.txt
 
 ---
 
-### ▶️ Running the Detector
+### ▶️ Running the Application
 
-The script is controlled via the command line.
+
+
+This project consists of two main parts: a **FastAPI Backend Server** that handles accident detection and reporting, and a **React Frontend Application** that provides a user interface.
+
+
+
+#### 1. Start the Backend Server
+
+
+
+The backend is built with FastAPI and handles video uploads, live webcam processing via WebSockets, and serving accident reports.
+
+
+
+1.  **Navigate to the backend directory:**
+
+    ```bash
+
+    cd backend
+
+    ```
+
+2.  **Run the server:**
+
+    ```bash
+
+    uvicorn main:app --reload
+
+    ```
+
+    The server will typically run on `http://127.0.0.1:8000`.
+
+
+
+#### 2. Start the Frontend Application
+
+
+
+The frontend is a React application built with Vite, providing a user-friendly interface to interact with the backend.
+
+
+
+1.  **Navigate to the frontend directory:**
+
+    ```bash
+
+    cd frontend
+
+    ```
+
+2.  **Install Node.js dependencies:**
+
+    ```bash
+
+    npm install
+
+    ```
+
+3.  **Run the development server:**
+
+    ```bash
+
+    npm run dev
+
+    ```
+
+    The frontend will typically run on `http://localhost:5173`. Your browser should automatically open to this address.
+
+
+
+---
+
+
+
+### ⚙️ Using the `accident_detection.py` Script Directly
+
+
+
+For direct command-line usage without the FastAPI backend or frontend, you can still run the core detection script. This is also how the backend internally leverages the detection logic.
+
+
 
 #### Basic Examples
 
+
+
 ```bash
+
 # Run detection on a local video file
+
 python3 -m src.accident_detection --source demo_video.mp4
 
+
+
 # Run detection using a live webcam
+
 python3 -m src.accident_detection --source 0
+
 ```
+
+
 
 #### 🎛️ Command-Line Arguments
 
+
+
 All arguments are optional, but allow you to fine-tune the detection process.
 
+
+
 | Argument            | Description                                                               | Default             |
+
 | ------------------- | ------------------------------------------------------------------------- | ------------------- |
+
 | `--source`          | Path to video file or `0` for webcam.                                     | `0`                 |
+
 | `--model`           | Path to the YOLOv8 model weights file.                                    | `best.pt`           |
+
 | `--output`          | Name for the generated output video.                                      | `results_video.mp4` |
+
 | `--acc-conf`        | Confidence threshold for `vehicle_incident` classification.               | `0.75`              |
+
 | `--frame-threshold` | Number of consecutive frames to confirm an accident.                      | `3`                 |
+
 | `--speed-threshold` | Pixel displacement to be considered a "sudden stop".                      | `10`                |
+
 | `--iou-threshold`   | Intersection over Union (IoU) threshold for collision detection.          | `0.1`               |
+
 | `--location`        | Provide a location name (e.g., "Eiffel Tower") for accurate geocoding. | `None`              |
+
+
 
 #### Advanced Example
 
+
+
 Here's how you might run a more customized analysis:
 
+
+
 ```bash
+
 python3 -m src.accident_detection \
+
     --source "path/to/your/video.mp4" \
+
     --model "best.pt" \
+
     --output "my_analysis.mp4" \
+
     --acc-conf 0.80 \
+
     --frame-threshold 4 \
+
     --location "1600 Amphitheatre Parkway, Mountain View, CA"
+
 ```
 
+
+
 After running, you'll find the annotated video (`my_analysis.mp4`) and any JSON reports in the project directory.
+
+
 
 ---
