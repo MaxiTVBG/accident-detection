@@ -10,7 +10,7 @@ from PIL import Image
 from collections import deque, defaultdict
 import numpy as np
 from itertools import combinations
-from .utils import setup_logging, get_gps_coordinates, get_gemini_api_key
+from utils import setup_logging, get_gps_coordinates, get_gemini_api_key
 
 
 class AccidentDetector:
@@ -25,6 +25,7 @@ class AccidentDetector:
         speed_threshold=10,
         iou_threshold=0.1,
         location=None,
+        language='en'
     ):
         self.logger = setup_logging()
         self.model_path = model_path
@@ -36,6 +37,7 @@ class AccidentDetector:
         self.speed_threshold = speed_threshold
         self.iou_threshold = iou_threshold
         self.location = location
+        self.language = language
 
         self.device = self._get_device()
         self.model = self._load_model()
@@ -54,8 +56,8 @@ class AccidentDetector:
         if self.api_key:
             try:
                 genai.configure(api_key=self.api_key)
-                self.gemini_model = genai.GenerativeModel("gemini-2.5-pro")
-                self.logger.info("✅ Google Gemini 2.5 Pro AI configured successfully")
+                self.gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+                self.logger.info("✅ Google gemini-2.5-flash AI configured successfully")
             except Exception as e:
                 self.logger.error(f"Error configuring Gemini: {e}")
                 self.gemini_model = None
@@ -77,9 +79,16 @@ class AccidentDetector:
             self.logger.error(f"Error loading model: {e}")
             return None
 
-    def generate_accident_description(self, frames):
+    def generate_accident_description(self, frames, target_language_code='en'):
         if not self.gemini_model:
             return {"error": "Gemini model not configured."}
+        
+        language_map = {
+            'en': 'English',
+            'bg': 'Bulgarian'
+        }
+        target_language_name = language_map.get(target_language_code, 'English')
+
         try:
             selected_frames = (
                 [frames[0], frames[len(frames) // 2], frames[-1]]
@@ -90,18 +99,25 @@ class AccidentDetector:
                 Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 for frame in selected_frames
             ]
-            prompt = """Analyze the traffic accident frames and return a structured JSON. Focus on the accident and participants. Format:
-                        {
-                        "accident_summary": { "severity": "...", "description": "...", "inferred_sequence_of_events": ["..."] },
-                        "participants": [ { "type": "...", "color": "...", "visible_damage": "...", "role": "..." } ]
-                        }
+            
+            prompt = f"""Analyze the traffic accident frames and return a structured JSON.
+                        The JSON keys MUST be in English.
+                        The values for all fields (severity, description, inferred_sequence_of_events, type, color, visible_damage, role) MUST be translated into {target_language_name}.
+                        Maintain the same detailed content and structure for the translated values as you would for an English response.
+
+                        Format:
+                        {{
+                        "accident_summary": {{ "severity": "...", "description": "...", "inferred_sequence_of_events": ["..."] }},
+                        "participants": [ {{ "type": "...", "color": "...", "visible_damage": "...", "role": "..." }} ]
+                        }}
                             - `severity`: 'Minor', 'Moderate', 'Severe', or 'Critical'.
                             - `description`: One-sentence summary.
                             - `inferred_sequence_of_events`: Likely sequence.
                             - `participants`: List of involved vehicles/persons. `type`: e.g., 'Sedan', 'SUV'. `role`: e.g., 'At-fault vehicle'.
-                        Use "Not determinable from images" if unclear."""
+                        Use "Not determinable from images" or its {target_language_name} equivalent if unclear, ensuring the response matches the structure and content fidelity of an English analysis, just translated."""
+
             self.logger.info(
-                f"Generating description for {len(pil_images)} frames with Gemini 2.5 Pro..."
+                f"Generating description for {len(pil_images)} frames in {target_language_name} with gemini-2.5-flash..."
             )
             response = self.gemini_model.generate_content(
                 [prompt] + pil_images,
@@ -118,7 +134,7 @@ class AccidentDetector:
             )
             self.logger.info(
                 "=" * 60
-                + "\nACCIDENT DESCRIPTION (Gemini 2.5 Pro):\n"
+                + f"\nACCIDENT DESCRIPTION (gemini-2.5-flash, {target_language_name}):\n"
                 + json.dumps(description_json, indent=4)
                 + "\n"
                 + "=" * 60
@@ -128,10 +144,13 @@ class AccidentDetector:
             self.logger.error(f"Error with Gemini: {e}")
             return {"error": f"Description generation failed: {e}"}
 
+
+
     def process_video(self, video_source):
         if not self.model:
             return
         cap, out = None, None
+        report_filename = None
         try:
             cap = cv2.VideoCapture(video_source)
             if not cap.isOpened():
@@ -147,7 +166,7 @@ class AccidentDetector:
             )
 
             self.logger.info(
-                f"Processing video with tracking. Configs: acc_conf={self.acc_conf_thresh}, speed_thresh={self.speed_threshold}, iou_thresh={self.iou_threshold}. Press 'q' to quit."
+                f"Processing video with tracking. Configs: acc_conf={self.acc_conf_thresh}, speed_thresh={self.speed_threshold}, iou_thresh={self.iou_threshold}."
             )
 
             while cap.isOpened():
@@ -180,9 +199,6 @@ class AccidentDetector:
 
                 annotated_frame = self._annotate_frame(results[0].plot())
                 out.write(annotated_frame)
-                cv2.imshow("Accident Detection", annotated_frame)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
         except Exception as e:
             self.logger.error(
                 f"Unexpected error during video processing: {e}", exc_info=True
@@ -192,9 +208,74 @@ class AccidentDetector:
                 cap.release()
             if out:
                 out.release()
-            cv2.destroyAllWindows()
-            self._select_and_report_best_event()
+            report_filename = self._select_and_report_best_event()
             self.logger.info("Video processing completed.")
+            return report_filename
+
+    def process_frame(self, frame):
+        if not self.model:
+            return {"error": "Model not loaded."}
+
+        if self.accident_cooldown > 0:
+            self.accident_cooldown -= 1
+
+        self.accident_frames_buffer.append(frame.copy())
+        results = self.model.track(frame, persist=True)
+        
+        boxes = []
+        if results[0].boxes is not None:
+            for box in results[0].boxes:
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                conf = box.conf[0].cpu().numpy()
+                cls = self.model.names[int(box.cls[0].cpu().numpy())]
+                boxes.append([float(x1), float(y1), float(x2), float(y2), float(conf), cls])
+
+        accident_in_frame, method, value = self._process_frame_results(results)
+        
+        if accident_in_frame:
+            self.consecutive_accident_details.append(
+                {"method": method, "value": value}
+            )
+        else:
+            self.consecutive_accident_details = []
+
+        accident_confirmed_this_frame = False
+        report = None
+        if (
+            len(self.consecutive_accident_details) >= self.frame_confirmation_threshold
+            and self.accident_cooldown == 0
+        ):
+            self._log_confirmed_event()
+            # Assuming fps is around 30 for cooldown setting
+            self.accident_cooldown = 30 * 5  # 5-second cooldown
+            self.consecutive_accident_details = []
+            accident_confirmed_this_frame = True
+            
+            # Select the best event and generate a report
+            if self.confirmed_accident_events:
+                 # Sort by method priority and value
+                priority = {"collision": 2, "classification": 1, "sudden_stop": 0}
+                self.confirmed_accident_events.sort(
+                    key=lambda x: (priority[x["method"]], x["value"]),
+                    reverse=True,
+                )
+                best_event = self.confirmed_accident_events[-1] # Get the latest confirmed event
+                report_filename = self._handle_confirmed_accident(best_event["frames"])
+                
+                # Reading the report to send back
+                if os.path.exists(report_filename):
+                    with open(report_filename, 'r') as f:
+                        report = json.load(f)
+
+
+        return {
+            "boxes": boxes,
+            "is_accident": accident_in_frame,
+            "accident_confirmed": accident_confirmed_this_frame,
+            "potential_accident": len(self.consecutive_accident_details) > 0,
+            "cooldown": self.accident_cooldown > 0,
+            "report": report,
+        }
 
     def _log_confirmed_event(self):
         self.logger.info(
@@ -234,7 +315,8 @@ class AccidentDetector:
         priority = {"collision": 2, "classification": 1, "sudden_stop": 0}
 
         self.confirmed_accident_events.sort(
-            key=lambda x: (priority[x["method"]], x["value"]), reverse=True
+            key=lambda x: (priority[x["method"]], x["value"]),
+            reverse=True,
         )
 
         best_event = self.confirmed_accident_events[0]
@@ -242,7 +324,7 @@ class AccidentDetector:
             f"Best event selected - Method: {best_event['method']}, Value: {best_event['value']:.2f}"
         )
 
-        self._handle_confirmed_accident(best_event["frames"])
+        return self._handle_confirmed_accident(best_event["frames"])
 
     def _process_frame_results(self, results):
         if results[0].boxes is None or results[0].boxes.id is None:
@@ -314,8 +396,20 @@ class AccidentDetector:
 
     def _handle_confirmed_accident(self, frames):
         lat, lon = get_gps_coordinates(location=self.location)
-        description_json = self.generate_accident_description(frames)
-        self._save_report(lat, lon, description_json)
+        
+        ai_analysis_multilang = {}
+        
+        # Always generate for the requested language
+        ai_analysis_multilang[self.language] = self.generate_accident_description(frames, self.language)
+        
+        # If the requested language is not English, also generate for English as a fallback
+        if self.language != 'en':
+            ai_analysis_multilang['en'] = self.generate_accident_description(frames, 'en')
+        
+        report_object = self._create_report_object(lat, lon, ai_analysis_multilang)
+        self._save_report(report_object) # Save the report, but don't return its filename here
+        return report_object # Return the full report object
+
 
     def _annotate_frame(self, frame):
         for _, centers in self.track_history.items():
@@ -339,10 +433,7 @@ class AccidentDetector:
             )
         return frame
 
-    def _save_report(self, lat, lon, description_json):
-        if not os.path.exists(self.accident_report_dir):
-            os.makedirs(self.accident_report_dir)
-
+    def _create_report_object(self, lat, lon, ai_analysis_multilang):
         report = {
             "timestamp": time.time(),
             "timestamp_readable": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -351,7 +442,7 @@ class AccidentDetector:
                 "longitude": lon,
                 "google_maps_link": f"https://www.google.com/maps?q={lat},{lon}",
             },
-            "ai_analysis": description_json,
+            "ai_analysis_multilang": ai_analysis_multilang,
             "detection_parameters": {
                 "confidence_threshold_accident": self.acc_conf_thresh,
                 "frame_confirmation_threshold": self.frame_confirmation_threshold,
@@ -359,17 +450,25 @@ class AccidentDetector:
                 "iou_threshold_for_collision": self.iou_threshold,
             },
         }
+        return report
+
+    def _save_report(self, report): # Simplified signature
+        if not os.path.exists(self.accident_report_dir):
+            os.makedirs(self.accident_report_dir)
+
+        # The report object is already created and passed in, no need to create it here
         report_filename = os.path.join(
-            self.accident_report_dir, f"accident_report_{int(time.time())}.json"
+            self.accident_report_dir, f"accident_report_{int(report['timestamp'])}.json" # Use timestamp from report
         )
         with open(report_filename, "w") as f:
             json.dump(report, f, indent=4)
         self.logger.info(f"\n✅ Best accident report saved to: {report_filename}")
+        return report # Return the report object itself
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Accident Detection with Google Gemini 2.5 Pro"
+        description="Accident Detection with Google gemini-2.5-flash"
     )
     parser.add_argument(
         "--source", type=str, default="0", help="Video source ('0' for webcam)."

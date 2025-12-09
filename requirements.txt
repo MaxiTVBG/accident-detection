@@ -5,6 +5,11 @@ python-dotenv
 google-generativeai
 Pillow
 torch
+fastapi
+uvicorn
+python-multipart
+websockets
+
 
 # Development and Testing
 black
